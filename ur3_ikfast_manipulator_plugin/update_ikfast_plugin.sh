@@ -1,0 +1,1 @@
+rosrun moveit_kinematics create_ikfast_moveit_plugin.py ur3 manipulator ur3_ikfast_manipulator_plugin /home/ros/catkin_ws/src/ur3_ikfast_manipulator_plugin/src/ur3_manipulator_ikfast_solver.cpp
