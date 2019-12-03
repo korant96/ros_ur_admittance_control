@@ -68,11 +68,11 @@ int armgo(moveit::planning_interface::MoveGroupInterface &arm, moveit::planning_
     geometry_msgs::Pose target_pose1;
     //ros::Rate loop(1);
     //int flag = 0;
-    ros::Rate loop(20);
+    ros::Rate loop(1);
     while(ros::ok()){
       //arm.setGoalJointTolerance(0.001);
       target_pose1 = arm.getCurrentPose().pose;
-      target_pose1.position.x += 0.01;
+      target_pose1.position.x += 0.001;
       arm.setPoseTarget(target_pose1);
       bool success = (arm.plan(my_plan)==
       moveit::planning_interface::MoveItErrorCode::SUCCESS);
@@ -190,15 +190,15 @@ int main(int argc, char **argv)
     arm.setGoalJointTolerance(0.00000001);
     test1(arm, my_plan);
       vector <double>joint_position(6);
-      arm.setMaxAccelerationScalingFactor(0.1);
-      arm.setMaxVelocityScalingFactor(0.1);
+      //arm.setMaxAccelerationScalingFactor(0.1);
+      //arm.setMaxVelocityScalingFactor(0.1);
       joint_position = {-0.114552, -1.33864, 2.58024, -4.38686, -1.45662,-0.0212897};
       arm.setJointValueTarget(joint_position);
       //test1(arm, my_plan);
       arm.move();
       std::cout << "sucess" << std::endl;
       sleep(1);
-      armgo_once(arm, my_plan);
+      //armgo_once(arm, my_plan);
       //armgo_once2(arm, my_plan);
       test1(arm, my_plan);
     cin >> flag;

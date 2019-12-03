@@ -891,6 +891,7 @@ bool IKFastKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose& ik_pose
     std::vector<LimitObeyingSol> solutions_obey_limits;
     for (std::size_t i = 0; i < solutions.size(); ++i)
     {
+      //std::cout << solutions[i][0]<< ','<< solutions[i][1]<< ','<< solutions[i][2]<< ','<< solutions[i][3]<< ','<< solutions[i][4]<< ','<< solutions[i][5]<<std::endl;
       double dist_from_seed = 0.0;
       for (std::size_t j = 0; j < ik_seed_state.size(); ++j)
       {
@@ -899,7 +900,13 @@ bool IKFastKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose& ik_pose
 
       solutions_obey_limits.push_back({ solutions[i], dist_from_seed });
     }
+
     std::sort(solutions_obey_limits.begin(), solutions_obey_limits.end());
+
+    for(int iii = 0; iii < solutions_obey_limits.size(); iii++){
+      std::cout << solutions_obey_limits[iii].value[0]<< solutions_obey_limits[iii].value[1]<< solutions_obey_limits[iii].value[2]<< solutions_obey_limits[iii].value[3]<< solutions_obey_limits[iii].value[4]<< solutions_obey_limits[iii].value[5];
+      std::cout<<endl;
+    }
 
     // check for collisions if a callback is provided
     if (!solution_callback.empty())
@@ -909,7 +916,11 @@ bool IKFastKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose& ik_pose
         solution_callback(ik_pose, solutions_obey_limits[i].value, error_code);
         if (error_code.val == moveit_msgs::MoveItErrorCodes::SUCCESS)
         {
+
           solution = solutions_obey_limits[i].value;
+          //std::cout << solution[0]<< ','<< solution[1]<< ','<< solution[2]<< ','<< solution[3]<< ','<< solution[4]<< ','<< solution[5]<<std::endl;
+          std::cout<<i<<endl;
+          std::cout << ik_seed_state[0]<< ','<< ik_seed_state[1]<< ','<< ik_seed_state[2]<< ','<< ik_seed_state[3]<< ','<< ik_seed_state[4]<< ','<< ik_seed_state[5]<<std::endl;
           ROS_DEBUG_STREAM_NAMED(name_, "Solution passes callback");
           return true;
         }
@@ -1100,9 +1111,11 @@ bool IKFastKinematicsPlugin::getPositionIK(const geometry_msgs::Pose& ik_pose, c
 {
   ROS_DEBUG_STREAM_NAMED(name_, "getPositionIK");
 
+  //std::cout<<"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<std::endl;
   if (!active_)
   {
     ROS_ERROR("kinematics not active");
+
     return false;
   }
 
@@ -1206,9 +1219,13 @@ bool IKFastKinematicsPlugin::getPositionIK(const std::vector<geometry_msgs::Pose
                                            std::vector<std::vector<double>>& solutions,
                                            kinematics::KinematicsResult& result,
                                            const kinematics::KinematicsQueryOptions& options) const
+/**************************in this part**************************/
+//change
+//mutable std::vector<double> old_solution;
+//end
 {
   ROS_DEBUG_STREAM_NAMED(name_, "getPositionIK with multiple solutions");
-
+  //std::cout<<"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"<<std::endl;
   if (!active_)
   {
     ROS_ERROR("kinematics not active");
@@ -1300,10 +1317,20 @@ bool IKFastKinematicsPlugin::getPositionIK(const std::vector<geometry_msgs::Pose
     {
       ik_solutions = solution_set[r];
       numsol = ik_solutions.GetNumSolutions();
+      /*
+      //change
+      std::cout << "choice the solution START:" << std::endl;
+      std::vector< std::vector<double> > solutions_limits;
+      int put_num = 0;
+      //end
+      */
       for (int s = 0; s < numsol; ++s)
       {
         std::vector<double> sol;
         getSolution(ik_solutions, ik_seed_state, s, sol);
+
+        //std::cout << ik_seed_state[0]<< ','<< ik_seed_state[1]<< ','<< ik_seed_state[2]<< ','<< ik_seed_state[3]<< ','<< ik_seed_state[4]<< ','<< ik_seed_state[5]<<std::endl;
+        //std::cout <<s<<':'<< sol[0]<< ','<< sol[1]<< ','<< sol[2]<< ','<< sol[3]<< ','<< sol[4]<< ','<< sol[5]<<std::endl;
 
         bool obeys_limits = true;
         for (unsigned int i = 0; i < sol.size(); i++)
@@ -1322,11 +1349,76 @@ bool IKFastKinematicsPlugin::getPositionIK(const std::vector<geometry_msgs::Pose
         }
         if (obeys_limits)
         {
+          /*
+          //change
+          std::cout << "get the solutions in limits:" << std::endl;
+          getSolution(ik_solutions,s,sol_1);
+          std::cout << std::endl;
+
+          solutions_limits.push_back(sol_1);
+          put_num++;
+          //end
+          */
           // All elements of solution obey limits
           solutions_found = true;
           solutions.push_back(sol);
+
         }
       }
+      //change
+      /*
+      std::cout << "the number of solutions in limits:" << put_num << std::endl;
+
+      bool has_solutions_in_limit_ = true;
+      if(put_num == 0)
+      {
+        std::cout << "No solution within the limit" << std::endl;
+        has_solutions_in_limit_ = false;
+        return false;
+      }
+
+      double mindist = DBL_MAX;
+      int closest = -1;
+
+      if(has_solutions_in_limit_)
+      {
+        if(old_solution.empty())
+          solution = solutions_limits[0];  //solutions_limits[0]
+        else
+        {
+          //求每个solution_limits与前一个点的solution作绝对差，即找出关节角变化最小的solution
+          for(int p=0; p<solutions_limits.size(); ++p)
+          {
+            double dis_sqr = 0;
+            for(int q=0; q<old_solution.size(); ++q)
+            {
+              dis_sqr += fabs(old_solution[q] - solutions_limits[p][q]);
+            }
+            std::cout << "dis_sqr " << dis_sqr << std::endl;
+            if(dis_sqr < mindist)
+            {
+              mindist = dis_sqr;
+              closest = p;
+            }
+          }
+          std::cout << "choice number " << closest << std::endl;
+          solution = solutions_limits[closest];
+        }
+
+        old_solution.clear();
+        for (int b=0; b<solution.size(); ++b)
+          old_solution.push_back(solution[b]);
+
+        std::cout << std::endl;
+        std::cout << "FINAL SOLUTION!!!!!!! :" ;
+        for(int j=0;j<num_joints_; ++j)
+          std::cout << " " << solution[j];
+        std::cout << std::endl;
+
+        solutions_found = true;
+      }
+      //end
+      */
     }
 
     if (solutions_found)
