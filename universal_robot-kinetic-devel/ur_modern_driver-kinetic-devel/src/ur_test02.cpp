@@ -64,25 +64,58 @@ int test1(moveit::planning_interface::MoveGroupInterface &arm, moveit::planning_
 
 int armgo(moveit::planning_interface::MoveGroupInterface &arm, moveit::planning_interface::MoveGroupInterface::Plan &my_plan){
 
-    //arm.setGoalJointTolerance(0.1);
-    geometry_msgs::Pose target_pose1;
-    //ros::Rate loop(1);
-    //int flag = 0;
-    ros::Rate loop(1);
-    while(ros::ok()){
-      //arm.setGoalJointTolerance(0.001);
-      target_pose1 = arm.getCurrentPose().pose;
-      target_pose1.position.x += 0.001;
-      arm.setPoseTarget(target_pose1);
-      bool success = (arm.plan(my_plan)==
-      moveit::planning_interface::MoveItErrorCode::SUCCESS);
-      ROS_INFO("Visualizing plan 1 (pose goal) %s",success?"":"FAILED");
-      //让机械臂按照规划的轨迹开始运动，对应moveit中的execute。
-      if(success)
-          arm.execute(my_plan);
-      loop.sleep();
-      }
-    return -0;
+	arm.setGoalJointTolerance(0.000001);
+	geometry_msgs::Pose target_pose1;
+	//ros::Rate loop(1);
+	target_pose1 = arm.getCurrentPose().pose;
+	//target_pose2 = target_pose1;
+	//target_pose2.position.x += 0.5;
+	int xtimes=50;
+	double Xf=(0.5)/xtimes;
+    cout << " xtimes = " << xtimes << endl;
+    //double org_x,org_y,org_z;
+    for(int x=0;x<=xtimes;x++){
+        cout << "x=" << x << endl;
+        double crt_x = target_pose1.position.x + x*Xf;
+        geometry_msgs::Pose target_pose3;
+        target_pose3 = target_pose1;
+        target_pose3.position.x = crt_x; //位姿
+        //target_pose3.position.y = org_y;
+        //target_pose3.position.z = org_z;
+        cout << "target_pose.position.x = " << target_pose3.position.x << endl;
+        //target_pose3.orientation.w = 0;   //四元素
+        //target_pose3.orientation.x = 1;
+        //target_pose3.orientation.y = 0;
+        //target_pose3.orientation.z = 0;
+        arm.setPoseTarget(target_pose3);  
+        //group.move();
+        //moveit::planning_interface::MoveGroup::Plan planner;
+		//bool is_success = (arm.plan(my_plan)==
+		//moveit::planning_interface::MoveItErrorCode::SUCCESS);
+        //if(is_success){
+            arm.move();
+            //sleep(1);
+        //}else{
+          //  cout<<"Planning fail!"<<endl;
+        //}
+    }
+            
+	//while(ros::ok()){
+	//arm.setGoalJointTolerance(0.001);
+	//target_pose1 = arm.getCurrentPose().pose;
+	//target_pose1.position.x += 0.001;
+	/*
+	arm.setPoseTarget(target_pose2);
+	bool success = (arm.plan(my_plan)==
+	moveit::planning_interface::MoveItErrorCode::SUCCESS);
+	ROS_INFO("Visualizing plan 1 (pose goal) %s",success?"":"FAILED");
+
+	if(success)
+		arm.execute(my_plan);
+		loop.sleep();
+	//}
+	*/
+	return -0;
 }
 int armgo_once(moveit::planning_interface::MoveGroupInterface &arm, moveit::planning_interface::MoveGroupInterface::Plan &my_plan){
    std::cout << "go once" << std::endl;
@@ -112,99 +145,65 @@ int armgo_once(moveit::planning_interface::MoveGroupInterface &arm, moveit::plan
   return -0;
 
 }
+
 int armgo_once2(moveit::planning_interface::MoveGroupInterface &arm, moveit::planning_interface::MoveGroupInterface::Plan &my_plan){
-  std::cout << "go once2" << std::endl;
-  arm.setGoalJointTolerance(0.0001);
-  moveit_msgs::OrientationConstraint ocm;
-  //const robot_state::JointModelGroup *joint_model_group =
-      //arm.getCurrentState()->getJointModel("arm");
-  robot_state::RobotState start_state(*arm.getCurrentState());
-  const robot_state::JointModelGroup *joint_model_group=start_state.getJointModelGroup(arm.getName());
-  std::vector<double> joint_group_positions;
-  moveit::core::RobotStatePtr current_state = arm.getCurrentState();
-  current_state->copyJointGroupPositions(joint_model_group, joint_group_positions);
-  /*
-  ocm.link_name = "Joint6";
-  ocm.header.frame_id = "base_link";
-  ocm.orientation.x = 0;
-  ocm.orientation.y = 0;
-  ocm.orientation.z = 0;
-  ocm.orientation.w = 1;
-  ocm.absolute_x_axis_tolerance = 0.1;
-  ocm.absolute_y_axis_tolerance = 0.1;
-  ocm.absolute_z_axis_tolerance = 0.1;
-  ocm.weight = 1.0;
-  moveit_msgs::Constraints test_constraints;
-  test_constraints.orientation_constraints.push_back(ocm);
-  arm.setPathConstraints(test_constraints);
-  //robot_state::RobotState start_state(*arm.getCurrentState());
-  geometry_msgs::Pose start_pose2;
-  start_pose2.orientation.x = 0.317563;
-  start_pose2.orientation.y =  0.0827717;
-  start_pose2.orientation.z = 0.22652;
-  //start_pose2.orientation.w = 0.0;
-  start_pose2.position.x = -0.0108637;
-  start_pose2.position.y = -0.00184182;
-  start_pose2.position.z = -0.000241288;
-  start_pose2.orientation.w = 0.999944;
-  start_state.setFromIK(joint_model_group, start_pose2);
-  arm.setStartState(start_state);
-  */
-//   move_group.setPoseTarget(target_pose1);
-//   move_group.setPlanningTime(10.0);
-//   success = (move_group.plan(my_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
-//   ROS_INFO_NAMED("tutorial", "Visualizing plan 3 (constraints) %s", success ? "" : "FAILED");
+	std::cout << "go once2" << std::endl;
+	arm.setGoalJointTolerance(0.0001);
+	moveit_msgs::OrientationConstraint ocm;
+	//const robot_state::JointModelGroup *joint_model_group =
+	//arm.getCurrentState()->getJointModel("arm");
+	robot_state::RobotState start_state(*arm.getCurrentState());
+	const robot_state::JointModelGroup *joint_model_group=start_state.getJointModelGroup(arm.getName());
+	std::vector<double> joint_group_positions;
+	moveit::core::RobotStatePtr current_state = arm.getCurrentState();
+	current_state->copyJointGroupPositions(joint_model_group, joint_group_positions);
 
-   geometry_msgs::Pose target_pose1;
-   target_pose1 = arm.getCurrentPose().pose;
-   target_pose1.position.x = 0.717563;
-   target_pose1.position.y = 0.0827717;
-   target_pose1.position.z = 0.22652;
+	geometry_msgs::Pose target_pose1;
+	target_pose1 = arm.getCurrentPose().pose;
+	target_pose1.position.x = 0.717563;
+	target_pose1.position.y = 0.0827717;
+	target_pose1.position.z = 0.22652;
 
-   target_pose1.orientation.x = -0.0108637;
-   target_pose1.orientation.y = -0.00184182;
-   target_pose1.orientation.z = -0.000241288;
-   target_pose1.orientation.w = 0.999944;
-   arm.setPoseTarget(target_pose1);
-   bool success = (arm.plan(my_plan)==
-   moveit::planning_interface::MoveItErrorCode::SUCCESS);
-   ROS_INFO("Visualizing plan 1 (pose goal) %s",success?"":"FAILED");
-   if(success)
-       arm.execute(my_plan);
- return -0;
+	target_pose1.orientation.x = -0.0108637;
+	target_pose1.orientation.y = -0.00184182;
+	target_pose1.orientation.z = -0.000241288;
+	target_pose1.orientation.w = 0.999944;
+	arm.setPoseTarget(target_pose1);
+	bool success = (arm.plan(my_plan)==
+	moveit::planning_interface::MoveItErrorCode::SUCCESS);
+	ROS_INFO("Visualizing plan 1 (pose goal) %s",success?"":"FAILED");
+	if(success)
+		arm.execute(my_plan);
+	return -0;
 }
-int main(int argc, char **argv)
-{
-    char flag;
-  //初始化，其中ur_test02为节点名
-    ros::init(argc, argv, "ur_test02");
-    //多线程
-    ros::AsyncSpinner spinner(1);
-    //开启新的线
-    spinner.start();
- 
-    //初始化需要使用move group控制的机械臂中的arm group
-    moveit::planning_interface::MoveGroupInterface arm("manipulator");
-    moveit::planning_interface::MoveGroupInterface::Plan my_plan;
-    //moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
-    arm.setGoalJointTolerance(0.00000001);
-    test1(arm, my_plan);
-      vector <double>joint_position(6);
-      //arm.setMaxAccelerationScalingFactor(0.1);
-      //arm.setMaxVelocityScalingFactor(0.1);
-      joint_position = {-0.114552, -1.33864, 2.58024, -4.38686, -1.45662,-0.0212897};
-      arm.setJointValueTarget(joint_position);
-      //test1(arm, my_plan);
-      arm.move();
-      std::cout << "sucess" << std::endl;
-      sleep(1);
-      //armgo_once(arm, my_plan);
-      //armgo_once2(arm, my_plan);
-      test1(arm, my_plan);
-    cin >> flag;
-    if(flag == 'g'){
-      armgo(arm, my_plan);
-    }
-    ros::shutdown();
-    return 0;
+int main(int argc, char **argv){
+	char flag;
+	//初始化，其中ur_test02为节点名
+	ros::init(argc, argv, "ur_test02");
+	//多线程
+	ros::AsyncSpinner spinner(1);
+	//开启新的线
+	spinner.start();
+
+	//初始化需要使用move group控制的机械臂中的arm group
+	moveit::planning_interface::MoveGroupInterface arm("manipulator");
+	moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+	arm.setGoalJointTolerance(0.00000001);
+	test1(arm, my_plan);
+	vector <double>joint_position(6);
+	//arm.setMaxAccelerationScalingFactor(0.1);
+	//arm.setMaxVelocityScalingFactor(0.1);
+	joint_position = {-0.114552, -1.33864, 2.58024, -4.38686, -1.45662,-0.0212897};
+	arm.setJointValueTarget(joint_position);
+	//test1(arm, my_plan);
+	arm.move();
+	std::cout << "sucess" << std::endl;
+	sleep(1);
+	//test1(arm, my_plan);
+	cin >> flag;
+	if(flag == 'g'){
+		armgo(arm, my_plan);
+	}
+	ros::shutdown();
+	return 0;
 }

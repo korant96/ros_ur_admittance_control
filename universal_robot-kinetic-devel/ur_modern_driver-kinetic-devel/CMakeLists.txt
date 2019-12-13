@@ -113,6 +113,9 @@ target_link_libraries(backup_admittance_control ${catkin_LIBRARIES})
 add_executable(ur_test02 src/ur_test02.cpp)
 target_link_libraries(ur_test02 ${catkin_LIBRARIES})
 
+add_executable(really_admittance_control src/really_admittance_control.cpp)
+target_link_libraries(really_admittance_control ${catkin_LIBRARIES})
+
 install(DIRECTORY config launch
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 
