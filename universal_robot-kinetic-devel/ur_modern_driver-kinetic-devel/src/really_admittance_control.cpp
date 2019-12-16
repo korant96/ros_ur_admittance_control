@@ -13,7 +13,7 @@
 #include <string>
 #include<fstream>
 
-int i = 0;
+//int i = 0;
 using namespace std;
 geometry_msgs::Pose target_pose1;
 
@@ -28,9 +28,15 @@ geometry_msgs::Pose target_pose1;
 #define asix_ry 5
 #define asix_rz 6
 #define M 1.0 //stiffness value
-#define B 5000.0 //stiffness value
-#define K 10000.0 //stiffness value
-#define T 0.3 //stiffness value
+#define B 500.0 //stiffness value
+#define K 500.0 //stiffness value
+#define T 0.15 //stiffness value
+
+#define distance 0.05
+#define FORCE_CONTROL
+//#define OUTPUT2FILE
+
+
 float stander_fx;
 float stander_fy;
 float stander_fz;
@@ -39,6 +45,14 @@ float stander_ty;
 float stander_tz;
 float fx, fy, fz, tx, ty, tz;
 int flag = 0, flag_step = 0;
+string current_time;
+static string  getCurrentTimeStr()
+{
+	time_t t = time(NULL);
+	char ch[64] = {0};
+	strftime(ch, sizeof(ch) - 1, "%Y-%m-%d %H:%M:%S", localtime(&t));     //年-月-日 时-分-秒
+	return ch;
+}
 
 /****the callback of force sensor****/
 void chatterCallback_force(const geometry_msgs::WrenchStamped::ConstPtr & msg){
@@ -56,15 +70,26 @@ void chatterCallback_force(const geometry_msgs::WrenchStamped::ConstPtr & msg){
 		stander_ty = ty;
 		stander_tz = tz;
 		flag++;
+		current_time = getCurrentTimeStr();
 	}
-
+#ifdef OUTPUT2FILE
 	//打开输出文件
-	ofstream outf("/home/ros/catkin_ws/src/universal_robot-kinetic-devel/ur_modern_driver-kinetic-devel/src/out.txt",ios::app);
+	ofstream outf("/home/ros/catkin_ws/src/universal_robot-kinetic-devel/ur_modern_driver-kinetic-devel/src/out-" + current_time + ".txt",ios::app);
 	//输出到文件
 	outf<< fx << ',' << fy << ',' << fz << ',' << tx <<',' << tx << ',' << ty <<',' << tz << endl;
 	outf.close();
+#endif
 }
-
+bool planning(moveit::planning_interface::MoveGroupInterface &arm, moveit::planning_interface::MoveGroupInterface::Plan &my_plan){
+	bool success = (arm.plan(my_plan)==
+	moveit::planning_interface::MoveItErrorCode::SUCCESS);
+	ROS_INFO("Visualizing plan 1 (pose goal) %s",success?"":"FAILED");
+	if(success){
+		arm.execute(my_plan);
+		return true;
+	}
+	return false;
+}
 void addmittance_controler_inital(moveit::planning_interface::MoveGroupInterface &arm, moveit::planning_interface::MoveGroupInterface::Plan &my_plan){
 	flag_step = 0;
 	vector <double>joint_position(6);
@@ -84,14 +109,10 @@ void addmittance_controler_inital(moveit::planning_interface::MoveGroupInterface
 	target_pose_init.orientation.y = -0.00184182;
 	target_pose_init.orientation.z = -0.000241288;
 	arm.setPoseTarget(target_pose_init);
-	bool success = (arm.plan(my_plan)==
-	moveit::planning_interface::MoveItErrorCode::SUCCESS);
-	ROS_INFO("Visualizing plan 1 (inital goal) %s",success?"":"FAILED");
-	if(success)
-		arm.execute(my_plan);
-	cout << "************init sucessed************" << endl;
+	planning(arm, my_plan);
+	cout << "************init sucessed, process next program?************" << endl;
+	getchar();
 	sleep(1);
-	return;
 }
 
 float admittance_controller(float mem_f[3], float res_f[3]){
@@ -111,12 +132,11 @@ float force_difference_calculate(float difference, char asix, float mem_f[3], fl
 				res_f[0] = res_f[1];
 				res_f[1] = res_f[2];
 				res = admittance_controller(mem_f, res_f);
-				cout << "***************" << asix << ":"<< res << "***************" << endl;
 				if(res > 0.0015)
 					res = 0.0015;
 				if(res < -0.0015)
 					res = -0.0015;
-
+				cout << "***************" << "Z" << ":"<< res << "***************" << endl;
 				res_f[2] = res; 
 				break;
 			case asix_fy:
@@ -126,12 +146,11 @@ float force_difference_calculate(float difference, char asix, float mem_f[3], fl
 				res_f[0] = res_f[1];
 				res_f[1] = res_f[2];
 				res = admittance_controller(mem_f, res_f);
-				cout << "***************" << asix << ":"<< res << "***************" << endl;
 				if(res > 0.0015)
 					res = 0.0015;
 				if(res < -0.0015)
 					res = -0.0015;
-
+				cout << "***************" << "Y" << ":"<< res << "***************" << endl;	
 				res_f[2] = res; 
 			break;
 		}
@@ -182,7 +201,7 @@ float torque_difference_calculate(float difference, char asix, float mem_f[3], f
 
 
 bool difference_permition(float fx_p, float fy_p, float fz_p, float tx_p, float ty_p, float tz_p){
-
+#ifdef FORCE_CONTROL
 	if(fx_p < -force_threshold_value || fx_p > force_threshold_value) return true;
 	else if(fy_p < -force_threshold_value || fy_p > force_threshold_value) return true;
 	//else if(fz_p < -force_threshold_value || fz_p > force_threshold_value) return true;//not used
@@ -190,7 +209,10 @@ bool difference_permition(float fx_p, float fy_p, float fz_p, float tx_p, float 
 	else if(ty_p < -torque_threshold_value || ty_p > torque_threshold_value) return true;
 	//else if(tz_p < -torque_threshold_value || tz_p > torque_threshold_value) return true;//not used
 	else return false;
-	//return false;
+#endif
+#ifdef NO_FORCE_CONTROL
+	return false;
+#endif
 }
 
 
@@ -205,10 +227,6 @@ void addmittance_controller_running(moveit::planning_interface::MoveGroupInterfa
 	float tx_mem[3] = {0}, ty_mem[3] = {0}, tz_mem[3] = {0};
 
 	/****core code****/
-
-	if(flag_step == 125) {
-		cout << "*********************finished!*********************" <<endl;
-	}
 	if(flag_step % 10 == 0){
 		cout << "*********************"<< flag_step <<"*********************" <<endl;
 	}
@@ -217,14 +235,9 @@ void addmittance_controller_running(moveit::planning_interface::MoveGroupInterfa
 		arm.setGoalJointTolerance(0.000001);
 		//geometry_msgs::Pose target_pose1;
 		vector<double> rpy(3);      
-		if(flag_step == 0){
-			target_pose1 = arm.getCurrentPose().pose;
-			rpy = arm.getCurrentRPY();
-			cout << "***************first get***************" << endl;
-		}
 		//target_pose1.position.x += force_difference_calculate(fz_difference, "x");
 		target_pose1.position.z += force_difference_calculate(fy_difference, asix_fz, fy_mem, res_fy);
-		target_pose1.position.y -= force_difference_calculate(fx_difference, asix_fy, fx_mem, res_fx);
+		target_pose1.position.y += force_difference_calculate(fx_difference, asix_fy, fx_mem, res_fx);
 		//rpy[0] += torque_difference_calculate(tz_difference, "rx");
 		rpy[1] += torque_difference_calculate(tx_difference, asix_rz, tx_mem, res_tx);
 		rpy[2] -= torque_difference_calculate(ty_difference, asix_ry, ty_mem, res_ty);
@@ -235,32 +248,25 @@ void addmittance_controller_running(moveit::planning_interface::MoveGroupInterfa
 		target_pose1.orientation.z = q[2];
 		target_pose1.orientation.w = q[3];
 		arm.setPoseTarget(target_pose1);
-		bool success = (arm.plan(my_plan) ==
-		moveit::planning_interface::MoveItErrorCode::SUCCESS);
-		ROS_INFO("Visualizing plan 1 (pose goal) %s",success?"":"FAILED");
-		if(success)
-			arm.execute(my_plan);
+		planning(arm, my_plan);
 	}
-		else if(flag_step < 125){
-			if(flag_step < 6)
-				step = 0.04;
-			else
-				step = 0.005;
-			//geometry_msgs::Pose target_pose1;
-			if(flag_step == 0){
-				target_pose1 = arm.getCurrentPose().pose;
-				cout << "***************first get***************" << endl;
+	else if(flag_step < 5){
+		if(flag_step == 0){
+			target_pose1 = arm.getCurrentPose().pose;
+			cout << "***************first get***************" << endl;
 		}
-		target_pose1.position.x += step;
+		//step = 0.04;
+		target_pose1.position.x += 0.05;
 		arm.setPoseTarget(target_pose1);
-		bool success = (arm.plan(my_plan)==
-		moveit::planning_interface::MoveItErrorCode::SUCCESS);
-		ROS_INFO("Visualizing plan 1 (pose goal) %s",success?"":"FAILED");
-		if(success){
-			arm.execute(my_plan);
-			flag_step++;
-		}
+		if(planning(arm, my_plan)) flag_step++;
+	}		
+	else if(flag_step < ((float)distance / 0.0002) - 5){
+		target_pose1.position.x += 0.0002;
+		arm.setPoseTarget(target_pose1);
+		if(planning(arm, my_plan)) flag_step++;
 	}
+	else
+		cout << "*********************finished!*********************" <<endl;
 	return;
 }
 
@@ -274,7 +280,7 @@ int main(int argc, char **argv){
 	spinner.start();
 	addmittance_controler_inital(arm, my_plan);
 	cout << "***************admittance controller starting***************" << endl;
-	ros::Subscriber sub = n.subscribe("/netft_data", 10, chatterCallback_force);
+	ros::Subscriber sub = n.subscribe("/netft_data", 100, chatterCallback_force);
 	//ros::Rate loop(20);
 	while(ros::ok()){
 		addmittance_controller_running(arm, my_plan);//opera addmittance controller

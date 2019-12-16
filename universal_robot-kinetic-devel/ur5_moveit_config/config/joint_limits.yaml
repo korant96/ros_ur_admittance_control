@@ -31,7 +31,7 @@ joint_limits:
     max_acceleration: 2.15
     has_position_limits: true
     max_position: 3
-    min_position: -2
+    min_position: 0
 #    has_position_limits: true
 #    max_position: 3
 #    min_position: 1
@@ -41,7 +41,7 @@ joint_limits:
     has_acceleration_limits: true
     max_acceleration: 2.2
     has_position_limits: true
-    max_position: 1
+    max_position: 0
     min_position: -5
 #    has_position_limits: true
 #    max_position: -2

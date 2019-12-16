@@ -23,6 +23,9 @@ geometry_msgs::Pose target_pose1;
 #define force_threshold_value 10.0 //
 #define torque_threshold_value 2.0//
 
+#define FORCE_CONTROL
+
+
 float stander_fx;
 float stander_fy;
 float stander_fz;
@@ -31,6 +34,14 @@ float stander_ty;
 float stander_tz;
 float fx, fy, fz, tx, ty, tz;
 int flag = 0, flag_step = 0;
+
+static string  getCurrentTimeStr()
+{
+	time_t t = time(NULL);
+	char ch[64] = {0};
+	strftime(ch, sizeof(ch) - 1, "%Y-%m-%d %H:%M:%S", localtime(&t));     //年-月-日 时-分-秒
+	return ch;
+}
 
 /****the callback of force sensor****/
 void chatterCallback_force(const geometry_msgs::WrenchStamped::ConstPtr & msg){
@@ -49,24 +60,13 @@ void chatterCallback_force(const geometry_msgs::WrenchStamped::ConstPtr & msg){
 		stander_tz = tz;
 		flag++;
 	}
-
+#ifdef OUTPUT2FILE
 	//打开输出文件
-	ofstream outf("/home/ros/catkin_ws/src/universal_robot-kinetic-devel/ur_modern_driver-kinetic-devel/src/out.txt",ios::app);
-
-	//获取cout默认输出
-	//streambuf *default_buf=cout.rdbuf();
-
-	//重定向cout输出到文件
-	//cout.rdbuf( outf.rdbuf() );
-
+	ofstream outf("/home/ros/catkin_ws/src/universal_robot-kinetic-devel/ur_modern_driver-kinetic-devel/src/out-" + current_time + ".txt",ios::app);
 	//输出到文件
 	outf<< fx << ',' << fy << ',' << fz << ',' << tx <<',' << tx << ',' << ty <<',' << tz << endl;
 	outf.close();
-	//恢复cout默认输出
-	//cout.rdbuf( default_buf );
-
-
-	//cout<< fx <<" "<< fy <<" "<< fz <<" "<< tx <<" "<< ty <<" "<< tz << endl;
+#endif
 }
 
 void addmittance_controler_inital(moveit::planning_interface::MoveGroupInterface &arm, moveit::planning_interface::MoveGroupInterface::Plan &my_plan){
@@ -140,6 +140,7 @@ float torque_difference_calculate(float difference, string asix){
 }
 bool difference_permition(float fx_p, float fy_p, float fz_p, float tx_p, float ty_p, float tz_p){
 
+#ifdef FORCE_CONTROL
 	if(fx_p < -force_threshold_value || fx_p > force_threshold_value) return true;
 	else if(fy_p < -force_threshold_value || fy_p > force_threshold_value) return true;
 	//else if(fz_p < -force_threshold_value || fz_p > force_threshold_value) return true;//not used
@@ -147,7 +148,10 @@ bool difference_permition(float fx_p, float fy_p, float fz_p, float tx_p, float 
 	else if(ty_p < -torque_threshold_value || ty_p > torque_threshold_value) return true;
 	//else if(tz_p < -torque_threshold_value || tz_p > torque_threshold_value) return true;//not used
 	else return false;
-	//return false;
+#endif
+#ifdef NO_FORCE_CONTROL
+	return false;
+#endif
 }
 void addmittance_controller_running(moveit::planning_interface::MoveGroupInterface &arm, moveit::planning_interface::MoveGroupInterface::Plan &my_plan){
 
@@ -197,7 +201,7 @@ void addmittance_controller_running(moveit::planning_interface::MoveGroupInterfa
 			if(flag_step < 6)
 				step = 0.04;
 			else
-				step = 0.005;
+				step = 0.0005;
 			//geometry_msgs::Pose target_pose1;
 			if(flag_step == 0){
 				target_pose1 = arm.getCurrentPose().pose;
