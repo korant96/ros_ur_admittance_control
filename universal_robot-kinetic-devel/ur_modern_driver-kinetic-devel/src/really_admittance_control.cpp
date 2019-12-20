@@ -18,7 +18,7 @@ using namespace std;
 geometry_msgs::Pose target_pose1;
 
 #define k_force 5000.0 //stiffness value
-#define k_torque 3000.0 //stiffness value
+#define k_torque 100.0 //stiffness value
 #define force_threshold_value 5.0 //
 #define torque_threshold_value 2.0//
 #define asix_fx 1
@@ -28,13 +28,13 @@ geometry_msgs::Pose target_pose1;
 #define asix_ry 5
 #define asix_rz 6
 #define M 1.0 //stiffness value
-#define B 500.0 //stiffness value
-#define K 500.0 //stiffness value
+#define B 10.0 //stiffness value
+#define K 10.0 //stiffness value
 #define T 0.15 //stiffness value
 
-#define distance 0.05
+#define distance 1
 #define FORCE_CONTROL
-//#define OUTPUT2FILE
+#define OUTPUT2FILE
 
 
 float stander_fx;
@@ -46,6 +46,7 @@ float stander_tz;
 float fx, fy, fz, tx, ty, tz;
 int flag = 0, flag_step = 0;
 string current_time;
+bool once = true;
 static string  getCurrentTimeStr()
 {
 	time_t t = time(NULL);
@@ -70,7 +71,6 @@ void chatterCallback_force(const geometry_msgs::WrenchStamped::ConstPtr & msg){
 		stander_ty = ty;
 		stander_tz = tz;
 		flag++;
-		current_time = getCurrentTimeStr();
 	}
 #ifdef OUTPUT2FILE
 	//打开输出文件
@@ -94,25 +94,50 @@ void addmittance_controler_inital(moveit::planning_interface::MoveGroupInterface
 	flag_step = 0;
 	vector <double>joint_position(6);
 	arm.setGoalJointTolerance(0.0001);
-	arm.setMaxAccelerationScalingFactor(1);
-	arm.setMaxVelocityScalingFactor(1);
+	arm.setMaxAccelerationScalingFactor(0.1);
+	arm.setMaxVelocityScalingFactor(0.1);
 	/****The first pose***/
-	joint_position = {-0.114552, -1.33864, 2.58024, -4.38686, -1.45662,-0.0212897};
+/*
+-0.0920356
+-1.1972
+2.29541
+-4.24455
+-1.47516
+-0.0211099
+0.4241350.07836210.230632
+-0.0107621-0.002415280.001789920.999938
+x2 = 0.680220
+target
+-0.0459107
+-0.717216
+1.34748
+-3.77161
+-1.52452
+0.000359901
+0.7238460.07981840.23196
+0.0001726478.95952e-050.0001779341
+*/
+	joint_position = {-0.0920356, -1.1972, 2.29541, -4.24455, -1.47516,-0.0211099};
 	arm.setJointValueTarget(joint_position);
 	arm.move();   
+
 	geometry_msgs::Pose target_pose_init;
 	target_pose_init = arm.getCurrentPose().pose;
-	target_pose_init.position.x = 0.317563;
-	target_pose_init.position.y = 0.0827717;
-	target_pose_init.position.z = 0.22652;
-	target_pose_init.orientation.x = -0.0108637;
-	target_pose_init.orientation.y = -0.00184182;
-	target_pose_init.orientation.z = -0.000241288;
+	target_pose_init.position.x = 0.4241350;
+	target_pose_init.position.y = 0.07836210;
+	target_pose_init.position.z = 0.234632;
+	target_pose_init.orientation.x = -0.0107621;
+	target_pose_init.orientation.y = -0.002415280;
+	target_pose_init.orientation.z = 0.001789920;
+	target_pose_init.orientation.w = 0.999938;
 	arm.setPoseTarget(target_pose_init);
 	planning(arm, my_plan);
+
 	cout << "************init sucessed, process next program?************" << endl;
 	getchar();
-	sleep(1);
+	arm.setMaxAccelerationScalingFactor(0.5);
+	arm.setMaxVelocityScalingFactor(0.5);
+	sleep(5);
 }
 
 float admittance_controller(float mem_f[3], float res_f[3]){
@@ -133,8 +158,10 @@ float force_difference_calculate(float difference, char asix, float mem_f[3], fl
 				res_f[1] = res_f[2];
 				res = admittance_controller(mem_f, res_f);
 				if(res > 0.0015)
+					//res = 0.15;
 					res = 0.0015;
 				if(res < -0.0015)
+					//res = -0.15;
 					res = -0.0015;
 				cout << "***************" << "Z" << ":"<< res << "***************" << endl;
 				res_f[2] = res; 
@@ -146,10 +173,12 @@ float force_difference_calculate(float difference, char asix, float mem_f[3], fl
 				res_f[0] = res_f[1];
 				res_f[1] = res_f[2];
 				res = admittance_controller(mem_f, res_f);
-				if(res > 0.0015)
-					res = 0.0015;
-				if(res < -0.0015)
-					res = -0.0015;
+				if(res > 0.15)
+					res = 0.15;
+					//res = 0.0015;
+				if(res < -0.15)
+					res = -0.15;
+					//res = -0.0015;
 				cout << "***************" << "Y" << ":"<< res << "***************" << endl;	
 				res_f[2] = res; 
 			break;
@@ -188,9 +217,9 @@ float torque_difference_calculate(float difference, char asix, float mem_f[3], f
 				res = difference / k_torque;
 				cout << "***************" << asix << ":"<< difference / k_torque << "***************" << endl;
 				if(res > 0.2)
-					res = 0.002;
+					res = 0.2;
 				if(res < -0.2)
-					res = -0.002;
+					res = -0.2;
 				res_f[2] = res; 
 				break;
 		}
@@ -256,22 +285,36 @@ void addmittance_controller_running(moveit::planning_interface::MoveGroupInterfa
 			cout << "***************first get***************" << endl;
 		}
 		//step = 0.04;
-		target_pose1.position.x += 0.05;
+		target_pose1.position.x += 0;
+		//target_pose1.position.x += 0.0515;
 		arm.setPoseTarget(target_pose1);
 		if(planning(arm, my_plan)) flag_step++;
 	}		
 	else if(flag_step < ((float)distance / 0.0002) - 5){
-		target_pose1.position.x += 0.0002;
+		target_pose1.position.x += 0;
+		//target_pose1.position.x += 0.0002;
 		arm.setPoseTarget(target_pose1);
 		if(planning(arm, my_plan)) flag_step++;
 	}
-	else
+	else{
 		cout << "*********************finished!*********************" <<endl;
+#ifdef OUTPUT2FILE
+		if(once){
+			string end_time = getCurrentTimeStr();				
+			ofstream outf("/home/ros/catkin_ws/src/universal_robot-kinetic-devel/ur_modern_driver-kinetic-devel/src/out-" + current_time + ".txt",ios::app);
+			//输出到文件
+			outf<< end_time << endl;
+			outf.close();
+			once = false;
+		}
+#endif
+	}
 	return;
 }
 
 int main(int argc, char **argv){
 	//cout << stander_tz << endl;
+	current_time = getCurrentTimeStr();	
 	ros::init(argc, argv, "admittance_controller");
 	ros::NodeHandle n;   
 	moveit::planning_interface::MoveGroupInterface arm("manipulator");

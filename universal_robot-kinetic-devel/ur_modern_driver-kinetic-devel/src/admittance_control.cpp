@@ -18,13 +18,13 @@ using namespace std;
 geometry_msgs::Pose target_pose1;
 
 //#define k 3000.0 //stiffness value
-#define k_force 5000.0 //stiffness value
-#define k_torque 3000.0 //stiffness value
-#define force_threshold_value 10.0 //
+#define k_force 50000.0 //stiffness value
+#define k_torque 30000.0 //stiffness value
+#define force_threshold_value 5.0 //
 #define torque_threshold_value 2.0//
 
 #define FORCE_CONTROL
-
+#define OUTPUT2FILE
 
 float stander_fx;
 float stander_fy;
@@ -34,7 +34,8 @@ float stander_ty;
 float stander_tz;
 float fx, fy, fz, tx, ty, tz;
 int flag = 0, flag_step = 0;
-
+string current_time;
+bool once = true;
 static string  getCurrentTimeStr()
 {
 	time_t t = time(NULL);
@@ -73,13 +74,13 @@ void addmittance_controler_inital(moveit::planning_interface::MoveGroupInterface
 	flag_step = 0;
 	vector <double>joint_position(6);
 	arm.setGoalJointTolerance(0.0001);
-	arm.setMaxAccelerationScalingFactor(1);
-	arm.setMaxVelocityScalingFactor(1);
+	arm.setMaxAccelerationScalingFactor(0.1);
+	arm.setMaxVelocityScalingFactor(0.1);
 	/****The first pose***/
-	joint_position = {-0.114552, -1.33864, 2.58024, -4.38686, -1.45662,-0.0212897};
+	joint_position = {-0.0920356, -1.1972, 2.29541, -4.24455, -1.47516,-0.0211099};
 	arm.setJointValueTarget(joint_position);
 	arm.move();   
-	geometry_msgs::Pose target_pose1;
+	geometry_msgs::Pose target_pose_init;
 	target_pose1 = arm.getCurrentPose().pose;
 	//0.5269390.09128220.229934
 	//0.0005731750.009490540.001699360.999953
@@ -91,19 +92,23 @@ void addmittance_controler_inital(moveit::planning_interface::MoveGroupInterface
 	0.000299606
 	*/
 
-	target_pose1.position.x = 0.317563;
-	target_pose1.position.y = 0.0827717;
-	target_pose1.position.z = 0.22652;
-	target_pose1.orientation.x = -0.0108637;
-	target_pose1.orientation.y = -0.00184182;
-	target_pose1.orientation.z = -0.000241288;
-	arm.setPoseTarget(target_pose1);
+	target_pose_init.position.x = 0.4241350;
+	target_pose_init.position.y = 0.07836210;
+	target_pose_init.position.z = 0.234632;
+	target_pose_init.orientation.x = -0.0107621;
+	target_pose_init.orientation.y = -0.002415280;
+	target_pose_init.orientation.z = 0.001789920;
+	target_pose_init.orientation.w = 0.999938;
+	arm.setPoseTarget(target_pose_init);
 	bool success = (arm.plan(my_plan)==
 	moveit::planning_interface::MoveItErrorCode::SUCCESS);
 	ROS_INFO("Visualizing plan 1 (pose goal) %s",success?"":"FAILED");
 	if(success)
 		arm.execute(my_plan);
-	cout << "************init sucessed************" << endl;
+	cout << "************init sucessed, process next program?************" << endl;
+	getchar();
+	arm.setMaxAccelerationScalingFactor(0.5);
+	arm.setMaxVelocityScalingFactor(0.5);
 	sleep(1);
 	return;
 }
@@ -161,8 +166,16 @@ void addmittance_controller_running(moveit::planning_interface::MoveGroupInterfa
 
 	/****core code****/
 
-	if(flag_step == 125) {
+	if(flag_step == 190) {
 		cout << "*********************finished!*********************" <<endl;
+		#ifdef OUTPUT2FILE
+			string end_time = getCurrentTimeStr();				
+			//打开输出文件
+			ofstream outf("/home/ros/catkin_ws/src/universal_robot-kinetic-devel/ur_modern_driver-kinetic-devel/src/out-" + current_time + ".txt",ios::app);
+			//输出到文件
+			outf<< end_time << endl;
+			outf.close();
+		#endif
 	}
 	if(flag_step % 10 == 0){
 		cout << "*********************"<< flag_step <<"*********************" <<endl;
@@ -179,7 +192,7 @@ void addmittance_controller_running(moveit::planning_interface::MoveGroupInterfa
 		}
 		//target_pose1.position.x += force_difference_calculate(fz_difference, "x");
 		target_pose1.position.z += force_difference_calculate(fy_difference, "z");
-		target_pose1.position.y -= force_difference_calculate(fx_difference, "y");
+		target_pose1.position.y += force_difference_calculate(fx_difference, "y");
 		//rpy[0] += torque_difference_calculate(tz_difference, "rx");
 		rpy[1] += torque_difference_calculate(tx_difference, "rz");
 		rpy[2] -= torque_difference_calculate(ty_difference, "ry");
@@ -194,14 +207,16 @@ void addmittance_controller_running(moveit::planning_interface::MoveGroupInterfa
 		moveit::planning_interface::MoveItErrorCode::SUCCESS);
 		ROS_INFO("Visualizing plan 1 (pose goal) %s",success?"":"FAILED");
 		if(success)
-		  //arm.execute(my_plan);
+		  	arm.execute(my_plan);
 			cout << "success" << endl;
 		}
-		else if(flag_step < 125){
-			if(flag_step < 6)
-				step = 0.04;
+		else if(flag_step < 190){
+			if(flag_step < 5)
+				step = 0.0515;
+				//step = 0;
 			else
-				step = 0.0005;
+				step = 0.0002;
+				//step = 0;
 			//geometry_msgs::Pose target_pose1;
 			if(flag_step == 0){
 				target_pose1 = arm.getCurrentPose().pose;
@@ -224,6 +239,7 @@ void addmittance_controller_running(moveit::planning_interface::MoveGroupInterfa
 
 int main(int argc, char **argv){
 	//cout << stander_tz << endl;
+	current_time = getCurrentTimeStr();	
 	ros::init(argc, argv, "admittance_controller");
 	ros::NodeHandle n;   
 	moveit::planning_interface::MoveGroupInterface arm("manipulator");
@@ -233,12 +249,12 @@ int main(int argc, char **argv){
 	addmittance_controler_inital(arm, my_plan);
 	cout << "***************admittance controller starting***************" << endl;
 	ros::Subscriber sub = n.subscribe("/netft_data", 10, chatterCallback_force);
-	//ros::Rate loop(20);
+	ros::Rate loop(20);
 	while(ros::ok()){
 		addmittance_controller_running(arm, my_plan);//opera addmittance controller
 		//target_pose1 = arm.getCurrentPose().pose;
 		//ROS_INFO("hhhh");
-		//loop.sleep();
+		loop.sleep();
 	}
 	ros::waitForShutdown();
 	return 0;

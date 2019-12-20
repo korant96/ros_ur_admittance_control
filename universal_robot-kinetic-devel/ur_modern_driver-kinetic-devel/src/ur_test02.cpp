@@ -190,6 +190,7 @@ int main(int argc, char **argv){
 	moveit::planning_interface::MoveGroupInterface::Plan my_plan;
 	arm.setGoalJointTolerance(0.00000001);
 	test1(arm, my_plan);
+	getchar();
 	vector <double>joint_position(6);
 	//arm.setMaxAccelerationScalingFactor(0.1);
 	//arm.setMaxVelocityScalingFactor(0.1);
